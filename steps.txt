@@ -1,0 +1,172 @@
+LAB 7 - MICROSERVICE, DOCKER, KUBERNETES, MONITORING, CI/CD
+
+Task 0: Install Required Tools
+
+sudo apt update
+sudo apt install docker.io git kubectl -y
+
+# Install Minikube
+
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+# Verify
+
+docker --version
+kubectl version --client
+
+Task 1: Create Microservice
+
+nano app.py
+
+Paste:
+
+from flask import Flask, jsonify
+
+app = Flask(**name**)
+
+@app.route('/location')
+def location():
+return jsonify({
+"place": "Classroom",
+"latitude": 9.9312,
+"longitude": 76.2673
+})
+
+if **name** == '**main**':
+app.run(host='0.0.0.0', port=5000)
+
+nano requirements.txt
+flask
+
+Task 2: Create Docker Image
+
+nano Dockerfile
+
+Paste:
+
+FROM python:3.9
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]
+
+docker build -t gps-app .
+docker run -p 5000:5000 gps-app
+
+# Open browser
+
+http://localhost:5000/location
+
+Task 3: Deploy using Kubernetes (Minikube)
+
+minikube start
+
+# Use Minikube Docker
+
+eval $(minikube docker-env)
+
+# Build again
+
+docker build -t gps-app .
+
+nano deployment.yaml
+
+Paste:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: gps-deployment
+spec:
+replicas: 1
+selector:
+matchLabels:
+app: gps
+template:
+metadata:
+labels:
+app: gps
+spec:
+containers:
+- name: gps
+image: gps-app
+imagePullPolicy: Never
+ports:
+- containerPort: 5000
+
+kubectl apply -f deployment.yaml
+
+nano service.yaml
+
+Paste:
+
+apiVersion: v1
+kind: Service
+metadata:
+name: gps-service
+spec:
+type: NodePort
+selector:
+app: gps
+ports:
+- port: 5000
+targetPort: 5000
+
+kubectl apply -f service.yaml
+
+minikube service gps-service
+
+# Open URL with /location
+
+http://<IP>:<PORT>/location
+
+Task 4: Monitoring (Task 2)
+
+minikube addons enable metrics-server
+kubectl top pods
+
+Task 5: CI/CD (Task 3)
+
+mkdir -p .github/workflows
+nano .github/workflows/main.yml
+
+Paste:
+
+name: CI Pipeline
+
+on:
+push:
+branches: [ "main" ]
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+```
+steps:  
+- uses: actions/checkout@v3  
+
+- name: Build Docker Image  
+  run: docker build -t gps-app .  
+```
+
+git add .
+git commit -m "Lab7 completed"
+git push
+
+Task 6: Run in Lab Exam PC
+
+git clone https://github.com/Rupsika/lab7microservice.git
+cd lab7microservice
+
+minikube start
+eval $(minikube docker-env)
+docker build -t gps-app .
+
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+
+minikube service gps-service
+
+kubectl top pods
